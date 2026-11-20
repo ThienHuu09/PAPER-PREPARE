@@ -101,7 +101,7 @@ Key message: No embedding vector is fetched from a database at query time.
 ---
 
 ## Slide 7: Text and Speech Retrieval
-**Query pipeline (flow):** Text query (Vietnamese / English) -> Translate & shorten (Gemini 3.5 Flash-Lite) -> Encode with g(.) to a unit vector q -> One matrix product s = q^T E -> Partial sort, top-K, K = 50
+**Query pipeline (flow):** Text query (Vietnamese / English) Encode with g(.) to a unit vector q -> One matrix product s = q^T E -> Partial sort, top-K, K = 50
 
 **Speech (ASR) branch:** Whisper Large-v3 transcribes the audio. Each segment is linked to the keyframe nearest to its midpoint and embedded by EmbeddingGemma-300M.
 
