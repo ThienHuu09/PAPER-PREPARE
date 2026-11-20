@@ -59,7 +59,7 @@ Key message: The challenges are linked: more context costs tokens, richer alignm
 - Final round of the HCM City AI Challenge 2026.
 
 **Objective**
-- All query types on a CPU only: no remote vector database, no LLM call in the alignment.
+- All query types on a CPU only: no per-query vector fetch from a database, no LLM call in the alignment.
 - Note: no new alignment algorithm is claimed.
 
 **TRAKE problem**
@@ -85,7 +85,7 @@ Figure: `fig2_architecture.png`
 | Translation | Gemini 3.5 Flash-Lite |
 
 - One matrix product + partial sort per query.
-- Qdrant: metadata filtering only.
+- Qdrant: keyframe metadata and filtering.
 
 ---
 
@@ -96,12 +96,12 @@ Figure: `fig1_indexing.png`
 - **Embeddings:** e_j = f(x_j) / ||f(x_j)||_2, E = [e_1, ..., e_N] in R^(d x N). Image tower f and text tower g share one space.
 - **Metadata:** JSON in Qdrant: video name, frame ID, timestamp, file path.
 
-Key message: No embedding vector is fetched from a database at query time.
+Key message: No embedding vector is fetched from a database at query time; Qdrant still serves keyframe metadata.
 
 ---
 
 ## Slide 7: Text and Speech Retrieval
-**Query pipeline (flow):** Text query (Vietnamese / English) Encode with g(.) to a unit vector q -> One matrix product s = q^T E -> Partial sort, top-K, K = 50
+**Query pipeline (flow):** Text query (Vietnamese / English) -> Translate & shorten (Gemini 3.5 Flash-Lite) -> Encode with g(.) to a unit vector q -> One matrix product s = q^T E -> Partial sort, top-K, K = 50
 
 **Speech (ASR) branch:** Whisper Large-v3 transcribes the audio. Each segment is linked to the keyframe nearest to its midpoint and embedded by EmbeddingGemma-300M.
 
@@ -130,7 +130,7 @@ Two changes to the recurrence of Luu et al.:
 - Gaps are counted in seconds, so the result does not depend on keyframe density.
 - The context is mixed into every event embedding, so it takes no token budget.
 
-Key message: The alignment itself needs no LLM call and no database access.
+Key message: The alignment needs no LLM call and no vector fetch from a database; keyframe info still comes from Qdrant.
 
 ---
 
@@ -296,7 +296,7 @@ Contact: huy.tranminh2005@hcmut.edu.vn, nguyetminh261986@gmail.com, nkloi@hcmut.
 | Anchor-based | Vu et al. (2025) | Beam search over anchors and an LLM |
 | TRAKE | this work | Linear-penalty DP (after Luu et al.) with gaps in seconds, a candidate set per event, context blended into embeddings, no LLM |
 
-Many systems query a vector database (e.g. Qdrant) for every request; we score the collection in memory instead.
+Many systems query a vector database (e.g. Qdrant) for every request; we score embeddings in memory and use Qdrant only for keyframe metadata.
 
 ## B4: Semantic Search and Image Lookup Examples
 Figures: `fig6_semantic.png` (semantic search, translation enabled: costume festival in an African country); `fig7_imagelookup.png` (image lookup: banana photo; no hash match, 50 closest frames).
