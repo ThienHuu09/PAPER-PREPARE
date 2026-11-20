@@ -16,7 +16,7 @@ Thien Huu Nguyen (1), Van Vinh Bui (2), Quang Minh Nguyen Tran (1), An Nguyen Ho
 The 15th International Symposium on Information and Communication Technology (SOICT 2026)
 December 4, 2026
 
-Footer: N0N-L1NERS Team (HCMUT) | N0N-L1NERS: Video Retrieval on CPU | SOICT 2026
+Footer: N0N-L1NERS | N0N-L1NERS: Video Retrieval on CPU | SOICT 2026
 
 ---
 
