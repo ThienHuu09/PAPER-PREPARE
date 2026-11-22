@@ -7,16 +7,19 @@ Figures are in `images/paper/` (file names given per slide).
 ## Slide 1: Title
 **N0N-L1NERS: A Multimodal Video Retrieval System for CPU Execution**
 
-Thien Huu Nguyen (1), Van Vinh Bui (2), Quang Minh Nguyen Tran (1), An Nguyen Hoang (1), Minh Hieu Phan (1), Minh-Huy Tran (3), Nguyet Minh Nguyen Thi (1), Loi Nguyen Khanh (3)
+Thien Huu Nguyen (1,4*), Van Vinh Bui (2,4*), Quang Minh Nguyen Tran (1,4*), An Nguyen Hoang (1,4*), Minh Hieu Phan (1,4*), Minh-Huy Tran (3,4†), Nguyet Minh Nguyen Thi (1†), Loi Nguyen Khanh (3,4†)
 
 1. Ngo Quyen High School, Vietnam
-2. Tran Dai Nghia High School for the Gifted, Vietnam
+2. Tran Dai Nghia High School for The Gifted, Vietnam
 3. Ho Chi Minh City University of Technology (HCMUT), VNU-HCM, Vietnam
+4. HCMUT EE Machine Learning & IoT Lab, Vietnam
+
+\* Equal contribution; † Corresponding authors
 
 The 15th International Symposium on Information and Communication Technology (SOICT 2026)
 December 4, 2026
 
-Footer: N0N-L1NERS | N0N-L1NERS: Video Retrieval on CPU | SOICT 2026
+Footer: N0N-L1NERS Team (HCMUT) | N0N-L1NERS: Video Retrieval on CPU | SOICT 2026
 
 ---
 
@@ -33,20 +36,21 @@ Flow: Challenges -> System design -> TRAKE alignment -> Deployment & findings
 ---
 
 ## Slide 3: Challenges in Interactive Video Retrieval
-**1. Language & tokens**
-- Queries are often Vietnamese; encoders are trained mostly on English.
-- CLIP-style encoders cut input after 77 tokens.
-- A shared context would use up the rest.
+**1. Language**
+- Vietnamese queries, English-trained encoders.
+- CLIP-style cap: 77 tokens.
+- A shared context would use the rest.
 
-**2. Visual ambiguity**
-- Similarity can confuse near-duplicate frames.
-- Web image search adds network delay.
-- It cannot confirm a frame is in the collection.
+**2. Ambiguity**
+- Near-duplicate frames confuse similarity.
+- Web image search adds delay and cannot confirm a frame is in the collection.
 
-**3. Order & latency**
-- Naive ordered search grows combinatorially.
-- Fixed windows or LLM reranking limit or slow queries.
-- A remote vector database adds a round trip.
+**3. Alignment**
+- Naive search over ordered events in one video grows combinatorially.
+
+**4. Latency**
+- An external database costs a round trip per query.
+- Users issue many queries in succession.
 
 Key message: The challenges are linked: more context costs tokens, richer alignment costs time, and every database access costs latency.
 
@@ -59,7 +63,7 @@ Key message: The challenges are linked: more context costs tokens, richer alignm
 - Final round of the HCM City AI Challenge 2026.
 
 **Objective**
-- All query types on a CPU only: no per-query vector fetch from a database, no LLM call in the alignment.
+- All query types on a CPU only: FAISS for retrieval, Qdrant for keyframe info, no LLM call in the alignment.
 - Note: no new alignment algorithm is claimed.
 
 **TRAKE problem**
@@ -70,7 +74,7 @@ Key message: The challenges are linked: more context costs tokens, richer alignm
 **Contributions**
 - System design for order, context and CPU cost.
 - TRAKE: DP in seconds + context blending.
-- In-memory scoring, hybrid image query, RRF, UI.
+- In-memory FAISS retrieval, hybrid image query, RRF, web UI; three case studies.
 
 ---
 
@@ -84,24 +88,24 @@ Figure: `fig2_architecture.png`
 | Speech (optional) | Whisper Large-v3, EmbeddingGemma |
 | Translation | Gemini 3.5 Flash-Lite |
 
-- One matrix product + partial sort per query.
-- Qdrant: keyframe metadata and filtering.
+- FAISS index: embedding retrieval, one search per query.
+- Qdrant: metadata (video, frame ID, timestamp, path) and filtering.
 
 ---
 
-## Slide 6: Offline Indexing and In-memory Scoring
+## Slide 6: Offline Indexing and In-memory Retrieval
 Figure: `fig1_indexing.png`
 
 - **Keyframes:** four per shot at a + floor(i(b-a)/3), i in {0,1,2,3}. Timestamp t = frame index / FPS.
-- **Embeddings:** e_j = f(x_j) / ||f(x_j)||_2, E = [e_1, ..., e_N] in R^(d x N). Image tower f and text tower g share one space.
+- **Embeddings:** unit vectors e_j = f(x_j) / ||f(x_j)||_2 are indexed in FAISS for retrieval. Image tower f and text tower g share one space.
 - **Metadata:** JSON in Qdrant: video name, frame ID, timestamp, file path.
 
-Key message: No embedding vector is fetched from a database at query time; Qdrant still serves keyframe metadata.
+Key message: Retrieval runs on the in-memory FAISS index; Qdrant stores the keyframe metadata.
 
 ---
 
 ## Slide 7: Text and Speech Retrieval
-**Query pipeline (flow):** Text query (Vietnamese / English) -> Translate & shorten (Gemini 3.5 Flash-Lite) -> Encode with g(.) to a unit vector q -> One matrix product s = q^T E -> Partial sort, top-K, K = 50
+**Query pipeline (flow):** Text query (Vietnamese / English) -> Translate & shorten (Gemini 3.5 Flash-Lite) -> Encode with g(.) to a unit vector q -> Search FAISS: s_j = q^T e_j -> Top-K, K = 50; info from Qdrant
 
 **Speech (ASR) branch:** Whisper Large-v3 transcribes the audio. Each segment is linked to the keyframe nearest to its midpoint and embedded by EmbeddingGemma-300M.
 
@@ -116,7 +120,7 @@ Figure: `fig3_image_query.png`
 Exact match first, similarity as fallback:
 - **Offline:** worker threads compute the SHA-256 digest of every keyframe file into a hash index.
 - **Hit:** return the source keyframe with score 1.0; the encoder is not run.
-- **Miss:** z = f(image), then s = z^T E and a partial sort for the top-K.
+- **Miss:** z = f(image), then search the FAISS index (cosine, s_j = z^T e_j) for the top-K.
 - **OOK concepts:** optional example images from Google Image Search, encoded with f.
 
 Key message: An exact match is returned with certainty; a similar frame is ranked by similarity.
@@ -130,7 +134,7 @@ Two changes to the recurrence of Luu et al.:
 - Gaps are counted in seconds, so the result does not depend on keyframe density.
 - The context is mixed into every event embedding, so it takes no token budget.
 
-Key message: The alignment needs no LLM call and no vector fetch from a database; keyframe info still comes from Qdrant.
+Key message: The alignment needs no LLM call; FAISS retrieves embeddings, Qdrant supplies keyframe info.
 
 ---
 
@@ -225,7 +229,7 @@ Figure: `fig11_case3.png`
 
 ## Slide 17: Conclusion and Future Directions
 **Contributions**
-1. In-memory scoring: one matrix product.
+1. In-memory FAISS retrieval.
 2. TRAKE: DP over timestamps + context blending.
 3. Hybrid image query and RRF fusion.
 4. Web interface and three case studies.
@@ -258,7 +262,7 @@ Contact: huy.tranminh2005@hcmut.edu.vn, nguyetminh261986@gmail.com, nkloi@hcmut.
 # Backup slides
 
 ## B1: Complete Formulation
-- t = frame index / FPS; e_j = f(x_j) / ||f(x_j)||_2; s = z^T E
+- t = frame index / FPS; e_j = f(x_j) / ||f(x_j)||_2; s_j = z^T e_j
 - RRF(d) = sum_m 1 / (c + r_m(d)), c = 60
 - q_hat_l = ((1-w) q_l + w u) / ||(1-w) q_l + w u||_2, w = 0.3
 - max sum_l s_l(p_l) - lambda sum_l (t_{p_{l+1}} - t_{p_l}), s_l(p) = q_hat_l^T e_p, lambda = 0.0008
@@ -285,7 +289,8 @@ Contact: huy.tranminh2005@hcmut.edu.vn, nguyetminh261986@gmail.com, nkloi@hcmut.
 | Speech | Whisper Large-v3 |
 | Text embeddings | EmbeddingGemma-300M |
 | Translation | Gemini 3.5 Flash-Lite |
-| Metadata | Qdrant |
+| Embedding index | FAISS |
+| Keyframe metadata | Qdrant |
 | Server | FastAPI, DRES |
 
 ## B3: Related Work and Positioning
@@ -296,7 +301,7 @@ Contact: huy.tranminh2005@hcmut.edu.vn, nguyetminh261986@gmail.com, nkloi@hcmut.
 | Anchor-based | Vu et al. (2025) | Beam search over anchors and an LLM |
 | TRAKE | this work | Linear-penalty DP (after Luu et al.) with gaps in seconds, a candidate set per event, context blended into embeddings, no LLM |
 
-Many systems query a vector database (e.g. Qdrant) for every request; we score embeddings in memory and use Qdrant only for keyframe metadata.
+Many systems query a vector database (e.g. Qdrant) for every request; we retrieve with an in-memory FAISS index and use Qdrant only for keyframe metadata.
 
 ## B4: Semantic Search and Image Lookup Examples
 Figures: `fig6_semantic.png` (semantic search, translation enabled: costume festival in an African country); `fig7_imagelookup.png` (image lookup: banana photo; no hash match, 50 closest frames).
